@@ -8,9 +8,8 @@ import (
 	"github.com/antha-lang/antha/antha/anthalib/num"
 	"os"
 	"io"
-	"time"
-	"strconv"
-	"syscall/js"
+	"net/http"
+	"encoding/json"
 )
 
 //**********************//
@@ -42,21 +41,18 @@ func init(){
 }
 
 func main() {
-	SourceImage = importPictureAndGetPixelArray()
-	fmt.Println("Hello, world.")
-
-	startTime := time.Now()
-	calculatePinCoords()
-	precalculateAllPotentialLines()
-	calculateLines()
-	endTime := time.Now()
-	diff := endTime.Sub(startTime)
-	fmt.Println(" precalculateAllPotentialLines Taken, " + strconv.FormatFloat(diff.Seconds(), 'f', 6, 64))
-
-	fmt.Println("End")
+	http.Handle("/", http.FileServer(http.Dir("./")))
+	http.HandleFunc("/generate", func(w http.ResponseWriter, r *http.Request) {
+		SourceImage = importPictureAndGetPixelArray()
+		calculatePinCoords()
+		precalculateAllPotentialLines()
+		lines := calculateLines()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(lines)
+	})
+	fmt.Println("Server running on :8080")
+	http.ListenAndServe(":8080", nil)
 }
-
-func generateStringArt()
 
 func importPictureAndGetPixelArray() []float64 {
 	imgfile, _ := os.Open("./ae300.jpg")
@@ -140,8 +136,7 @@ func roundUpFloatArrayToInt(arr []float64) []float64 {
 	return arr
 }
 
-func calculateLines() {
-	fmt.Println("Drawing Lines....")
+func calculateLines() []int {
 	error := num.Sub(num.MulByConst(num.Ones(IMG_SIZE_SQ), float64(255)), SourceImage)
 
 	line_sequence := make([]int, 1, 4096)
@@ -186,7 +181,7 @@ func calculateLines() {
 		last_pins = last_pins[1:]
 		current_pin = best_pin
 	}	
-	fmt.Println(line_sequence)
+	return line_sequence
 }
 
 func getLineErr(err, coords1, coords2 []float64) float64 {
